@@ -23,6 +23,18 @@ func NewAccount(appID string, mchID string, apiKey string, isSanbox bool) *Accou
 	}
 }
 
+func (a *Account) AppID() (appID string) {
+	return a.appID
+}
+
+func (a *Account) MchID() (mchID string) {
+	return a.mchID
+}
+
+func (a *Account) ApiKey() (apiKey string) {
+	return a.apiKey
+}
+
 // 设置证书
 func (a *Account) SetCertData(certPath string) {
 	certData, err := ioutil.ReadFile(certPath)

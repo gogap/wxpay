@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
+	"encoding/xml"
 	"errors"
 	"io/ioutil"
 	"net/http"
@@ -16,11 +17,51 @@ import (
 
 const bodyType = "application/xml; charset=utf-8"
 
+type RequestResult struct {
+	APIType         APIType
+	RequestParams   Params
+	RequestContent  []byte
+	ResponseParams  Params
+	ResponseContent []byte
+	Error           error
+}
+
+type Cli interface {
+	SendRequest(apiType APIType, params Params, req interface{}) (result *RequestResult)
+	ValidateSignAndParams(xmlBytes []byte) (params Params, err error)
+}
+
+// 创建微信支付客户端
+func NewCli(account *Account, options *Options) Cli {
+	var serverURL string
+
+	if options.ServerURL != "" {
+		serverURL = options.ServerURL
+	} else if account.isSandbox {
+		serverURL = WxSandboxUrl
+	} else {
+		serverURL = WxUrl
+	}
+
+	return &Client{
+		account:              account,
+		signType:             HMACSHA256,
+		httpConnectTimeoutMs: 2000,
+		httpReadTimeoutMs:    1000,
+		serverURL:            serverURL,
+	}
+}
+
+type Options struct {
+	ServerURL string
+}
+
 type Client struct {
 	account              *Account // 支付账号
 	signType             string   // 签名类型
 	httpConnectTimeoutMs int      // 连接超时时间
 	httpReadTimeoutMs    int      // 读取超时时间
+	serverURL            string
 }
 
 // 创建微信支付客户端
@@ -31,6 +72,81 @@ func NewClient(account *Account) *Client {
 		httpConnectTimeoutMs: 2000,
 		httpReadTimeoutMs:    1000,
 	}
+}
+
+func (c *Client) SendRequest(apiType APIType, params Params, resp interface{}) (result *RequestResult) {
+
+	// api := NewAPI(apiType, c.options.ServerURL)
+	// url := api.URL()
+	url := c.getReqUrl(apiType)
+	result = &RequestResult{
+		APIType: apiType,
+	}
+
+	// postWithoutCert
+	h := &http.Client{}
+	result.RequestParams = c.fillRequestData(params)
+	result.RequestContent = []byte(MapToXml(result.RequestParams))
+	response, err := h.Post(url, bodyType, bytes.NewReader(result.RequestContent))
+	if err != nil {
+		result.Error = err
+		return
+	}
+	defer response.Body.Close()
+
+	res, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		result.Error = err
+		return
+	}
+
+	result.ResponseContent = res
+
+	result.ResponseParams, err = c.ValidateSignAndParams(res)
+	if err != nil {
+		result.Error = err
+		return
+	}
+
+	if resp != nil {
+		err = xml.Unmarshal(res, resp)
+		if err != nil {
+			result.Error = err
+			return
+		}
+	}
+
+	return
+}
+
+func (c *Client) getReqUrl(apiType APIType) string {
+	switch apiType {
+	case APITypeUnifiedOrder:
+		return c.serverURL + "pay/" + string(apiType)
+	case APITypeRefund:
+		return c.serverURL + "secapi/pay/" + string(apiType)
+	}
+
+	return ""
+}
+
+// func (p *Client) ParseResponse(apiType APIType, res []byte) (respParams Params, err error) {
+// 	resp, err := c.processResponseXml(string(res))
+// 	if err != nil {
+// 		return
+// 	}
+
+// 	// 根据请求类型，进一步校验返回参数
+// 	switch apiType {
+// 	case APITypeUnifiedOrder, APITypeRefund:
+
+// 	}
+
+// 	return nil, errors.New("return_code value is invalid in XML")
+// }
+
+func (p *Client) Account() (account *Account) {
+	return p.account
 }
 
 func (c *Client) SetHttpConnectTimeoutMs(ms int) {
@@ -167,6 +283,36 @@ func (c *Client) Sign(params Params) string {
 
 	return strings.ToUpper(str)
 }
+
+// 校验返回值
+func (c *Client) ValidateSignAndParams(xmlBytes []byte) (params Params, err error) {
+	respBase := &RespBase{}
+	err = xml.Unmarshal(xmlBytes, respBase)
+	if err != nil {
+		return
+	}
+
+	params = XmlToMap(string(xmlBytes))
+
+	returnCode := respBase.ReturnCode
+
+	if returnCode == Fail {
+		return
+	} else if returnCode == Success {
+		if c.ValidSign(params) {
+			return params, nil
+		} else {
+			return nil, errors.New("invalid sign value in XML")
+		}
+	} else {
+		return nil, errors.New("return_code value is invalid in XML")
+	}
+}
+
+// // 校验返回值
+// func (c *Client) ValidateSignAndParams(xmlBytes []byte) (params Params, err error) {
+// 	return c.processResponseXml(string(xmlBytes))
+// }
 
 // 处理 HTTPS API返回数据，转换成Map对象。return_code为SUCCESS时，验证签名。
 func (c *Client) processResponseXml(xmlStr string) (Params, error) {

@@ -5,15 +5,20 @@ import (
 	"crypto/tls"
 	"encoding/pem"
 	"encoding/xml"
-	"golang.org/x/crypto/pkcs12"
 	"log"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/pkcs12"
 )
+
+var re *regexp.Regexp = regexp.MustCompile(`\s`)
 
 func XmlToMap(xmlStr string) Params {
 
+	xmlStr = re.ReplaceAllString(xmlStr, "")
 	params := make(Params)
 	decoder := xml.NewDecoder(strings.NewReader(xmlStr))
 

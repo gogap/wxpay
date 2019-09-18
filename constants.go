@@ -1,11 +1,22 @@
 package wxpay
 
+// 请求类型定义
+type APIType string
+
+const (
+	APITypeUnifiedOrder APIType = "unifiedorder" // 统一下单
+	APITypeRefund       APIType = "refund"       // 申请退款
+)
+
 const (
 	Fail                       = "FAIL"
 	Success                    = "SUCCESS"
 	HMACSHA256                 = "HMAC-SHA256"
 	MD5                        = "MD5"
 	Sign                       = "sign"
+	WxUrl                      = "https://api.mch.weixin.qq.com"
+	WxSandboxUrl               = "https://api.mch.weixin.qq.com/sandboxnew"
+	WxpayUrl                   = "https://api.mch.weixin.qq.com/pay/"
 	MicroPayUrl                = "https://api.mch.weixin.qq.com/pay/micropay"
 	UnifiedOrderUrl            = "https://api.mch.weixin.qq.com/pay/unifiedorder"
 	OrderQueryUrl              = "https://api.mch.weixin.qq.com/pay/orderquery"
