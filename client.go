@@ -121,13 +121,11 @@ func (c *Client) SendRequest(apiType APIType, params Params, resp interface{}) (
 
 func (c *Client) getReqUrl(apiType APIType) string {
 	switch apiType {
-	case APITypeUnifiedOrder:
-		return c.serverURL + "pay/" + string(apiType)
 	case APITypeRefund:
 		return c.serverURL + "secapi/pay/" + string(apiType)
+	default:
+		return c.serverURL + "pay/" + string(apiType)
 	}
-
-	return ""
 }
 
 // func (p *Client) ParseResponse(apiType APIType, res []byte) (respParams Params, err error) {

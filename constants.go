@@ -5,6 +5,7 @@ type APIType string
 
 const (
 	APITypeUnifiedOrder APIType = "unifiedorder" // 统一下单
+	APITypeCloseorder   APIType = "closeorder"   // 关闭订单
 	APITypeRefund       APIType = "refund"       // 申请退款
 )
 
