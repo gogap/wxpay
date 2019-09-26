@@ -14,11 +14,11 @@ import (
 	"golang.org/x/crypto/pkcs12"
 )
 
-var re *regexp.Regexp = regexp.MustCompile(`\s`)
+var re *regexp.Regexp = regexp.MustCompile(`>\n\s*`)
 
 func XmlToMap(xmlStr string) Params {
 
-	xmlStr = re.ReplaceAllString(xmlStr, "")
+	xmlStr = re.ReplaceAllString(xmlStr, ">")
 	params := make(Params)
 	decoder := xml.NewDecoder(strings.NewReader(xmlStr))
 

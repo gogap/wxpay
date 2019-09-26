@@ -43,3 +43,5 @@ const (
 	SandboxShortUrl            = "https://api.mch.weixin.qq.com/sandboxnew/tools/shorturl"
 	SandboxAuthCodeToOpenidUrl = "https://api.mch.weixin.qq.com/sandboxnew/tools/authcodetoopenid"
 )
+
+const WxTimeFormat = "20060102150405"
