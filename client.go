@@ -35,6 +35,10 @@ type Cli interface {
 func NewCli(account *Account, options *Options) Cli {
 	var serverURL string
 
+	if options == nil {
+		options = &Options{}
+	}
+
 	if options.ServerURL != "" {
 		serverURL = options.ServerURL
 	} else if account.isSandbox {
@@ -68,7 +72,7 @@ type Client struct {
 func NewClient(account *Account) *Client {
 	return &Client{
 		account:              account,
-		signType:             MD5,
+		signType:             HMACSHA256,
 		httpConnectTimeoutMs: 2000,
 		httpReadTimeoutMs:    1000,
 	}
@@ -84,10 +88,11 @@ func (c *Client) SendRequest(apiType APIType, params Params, resp interface{}) (
 	}
 
 	// postWithoutCert
-	h := &http.Client{}
-	result.RequestParams = c.fillRequestData(params)
+	//h := &http.Client{}
+	result.RequestParams = c.FillRequestData(params)
 	result.RequestContent = []byte(MapToXml(result.RequestParams))
-	response, err := h.Post(url, bodyType, bytes.NewReader(result.RequestContent))
+	//logrus.Infoln(string(result.RequestContent))
+	response, err := http.Post(url, bodyType, bytes.NewReader(result.RequestContent))
 	if err != nil {
 		result.Error = err
 		return
@@ -164,7 +169,7 @@ func (c *Client) SetAccount(account *Account) {
 }
 
 // 向 params 中添加 appid、mch_id、nonce_str、sign_type、sign
-func (c *Client) fillRequestData(params Params) Params {
+func (c *Client) FillRequestData(params Params) Params {
 	params["appid"] = c.account.appID
 	params["mch_id"] = c.account.mchID
 	params["nonce_str"] = nonceStr()
@@ -176,7 +181,7 @@ func (c *Client) fillRequestData(params Params) Params {
 // https no cert post
 func (c *Client) postWithoutCert(url string, params Params) (string, error) {
 	h := &http.Client{}
-	p := c.fillRequestData(params)
+	p := c.FillRequestData(params)
 	response, err := h.Post(url, bodyType, strings.NewReader(MapToXml(p)))
 	if err != nil {
 		return "", err
@@ -206,7 +211,7 @@ func (c *Client) postWithCert(url string, params Params) (string, error) {
 		DisableCompression: true,
 	}
 	h := &http.Client{Transport: transport}
-	p := c.fillRequestData(params)
+	p := c.FillRequestData(params)
 	response, err := h.Post(url, bodyType, strings.NewReader(MapToXml(p)))
 	if err != nil {
 		return "", err
