@@ -49,7 +49,7 @@ func NewCli(account *Account, options *Options) Cli {
 
 	return &Client{
 		account:              account,
-		signType:             HMACSHA256,
+		signType:             MD5,
 		httpConnectTimeoutMs: 2000,
 		httpReadTimeoutMs:    1000,
 		serverURL:            serverURL,
@@ -72,7 +72,7 @@ type Client struct {
 func NewClient(account *Account) *Client {
 	return &Client{
 		account:              account,
-		signType:             HMACSHA256,
+		signType:             MD5,
 		httpConnectTimeoutMs: 2000,
 		httpReadTimeoutMs:    1000,
 	}
@@ -91,7 +91,7 @@ func (c *Client) SendRequest(apiType APIType, params Params, resp interface{}) (
 	//h := &http.Client{}
 	result.RequestParams = c.FillRequestData(params)
 	result.RequestContent = []byte(MapToXml(result.RequestParams))
-	//logrus.Infoln(string(result.RequestContent))
+	//logrus.Infoln(url, string(result.RequestContent))
 	response, err := http.Post(url, bodyType, bytes.NewReader(result.RequestContent))
 	if err != nil {
 		result.Error = err
@@ -127,9 +127,9 @@ func (c *Client) SendRequest(apiType APIType, params Params, resp interface{}) (
 func (c *Client) getReqUrl(apiType APIType) string {
 	switch apiType {
 	case APITypeRefund:
-		return c.serverURL + "secapi/pay/" + string(apiType)
+		return c.serverURL + "/secapi/pay/" + string(apiType)
 	default:
-		return c.serverURL + "pay/" + string(apiType)
+		return c.serverURL + "/pay/" + string(apiType)
 	}
 }
 
