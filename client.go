@@ -29,6 +29,8 @@ type RequestResult struct {
 type Cli interface {
 	SendRequest(apiType APIType, params Params, req interface{}) (result *RequestResult)
 	ValidateSignAndParams(xmlBytes []byte) (params Params, err error)
+	Sign(params Params) string
+	Account() (account *Account)
 }
 
 // 创建微信支付客户端
@@ -172,7 +174,7 @@ func (c *Client) SetAccount(account *Account) {
 func (c *Client) FillRequestData(params Params) Params {
 	params["appid"] = c.account.appID
 	params["mch_id"] = c.account.mchID
-	params["nonce_str"] = nonceStr()
+	params["nonce_str"] = NonceStr()
 	params["sign_type"] = c.signType
 	params["sign"] = c.Sign(params)
 	return params
