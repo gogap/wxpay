@@ -45,3 +45,12 @@ const (
 )
 
 const WxTimeFormat = "20060102150405"
+
+type RefundStatus string
+
+const (
+	RefundStatusSuccess     RefundStatus = "SUCCESS"
+	RefundStatusRefundClose RefundStatus = "REFUNDCLOSE"
+	RefundStatusProcessing  RefundStatus = "PROCESSING"
+	RefundStatusChange      RefundStatus = "CHANGE"
+)

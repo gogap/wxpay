@@ -6,13 +6,17 @@ import (
 	"crypto/md5"
 	"crypto/sha256"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"io/ioutil"
 	"net/http"
 	"sort"
 	"strings"
+
+	"github.com/nanjishidu/gomini/gocrypto"
 )
 
 const bodyType = "application/xml; charset=utf-8"
@@ -28,9 +32,11 @@ type RequestResult struct {
 
 type Cli interface {
 	SendRequest(apiType APIType, params Params, req interface{}) (result *RequestResult)
+	SendRefund(req *ReqRefund) (resp *RespRefund, result *RequestResult)
 	ValidateSignAndParams(xmlBytes []byte) (params Params, err error)
 	Sign(params Params) string
 	Account() (account *Account)
+	Decrypt(encryptedInfo []byte) (result []byte, err error)
 }
 
 // 创建微信支付客户端
@@ -72,11 +78,20 @@ type Client struct {
 
 // 创建微信支付客户端
 func NewClient(account *Account) *Client {
+	var serverURL string
+
+	if account.isSandbox {
+		serverURL = WxSandboxUrl
+	} else {
+		serverURL = WxUrl
+	}
+
 	return &Client{
 		account:              account,
 		signType:             MD5,
 		httpConnectTimeoutMs: 2000,
 		httpReadTimeoutMs:    1000,
+		serverURL:            serverURL,
 	}
 }
 
@@ -121,6 +136,54 @@ func (c *Client) SendRequest(apiType APIType, params Params, resp interface{}) (
 			result.Error = err
 			return
 		}
+	}
+
+	return
+}
+
+func (c *Client) SendRefund(req *ReqRefund) (resp *RespRefund, result *RequestResult) {
+	resp = new(RespRefund)
+	result = c.request(APITypeRefund, req, resp)
+
+	return
+}
+
+func (c *Client) request(apiType APIType, req, resp interface{}) (result *RequestResult) {
+	result = &RequestResult{
+		APIType: apiType,
+	}
+
+	reqParams := Params{}
+	reqBytes, err := json.Marshal(req)
+	if err != nil {
+		result.Error = err
+		return
+	}
+	err = json.Unmarshal(reqBytes, &reqParams)
+	if err != nil {
+		result.Error = err
+		return
+	}
+
+	result = c.SendRequest(apiType, reqParams, resp)
+
+	return
+}
+
+func (c *Client) Decrypt(encryptedInfo []byte) (result []byte, err error) {
+	encInfo, err := base64.StdEncoding.DecodeString(string(encryptedInfo))
+	if err != nil {
+		return
+	}
+
+	err = gocrypto.SetAesKey(strings.ToLower(gocrypto.Md5(c.account.apiKey)))
+	if err != nil {
+		return
+	}
+
+	result, err = gocrypto.AesECBDecrypt([]byte(encInfo))
+	if err != nil {
+		return
 	}
 
 	return
