@@ -35,8 +35,12 @@ func (a *Account) ApiKey() (apiKey string) {
 	return a.apiKey
 }
 
+func (a *Account) SetCertData(certData []byte) {
+	a.certData = certData
+}
+
 // 设置证书
-func (a *Account) SetCertData(certPath string) {
+func (a *Account) LoadCertDataFromFile(certPath string) {
 	certData, err := ioutil.ReadFile(certPath)
 	if err != nil {
 		log.Println("读取证书失败")

@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"sort"
@@ -31,7 +32,7 @@ type RequestResult struct {
 }
 
 type Cli interface {
-	SendRequest(apiType APIType, params Params, req interface{}) (result *RequestResult)
+	SendRequest(apiType APIType, params Params, resp interface{}, withCert bool) (result *RequestResult)
 	SendRefund(req *ReqRefund) (resp *RespRefund, result *RequestResult)
 	ValidateSignAndParams(xmlBytes []byte) (params Params, err error)
 	Sign(params Params) string
@@ -41,27 +42,17 @@ type Cli interface {
 
 // 创建微信支付客户端
 func NewCli(account *Account, options *Options) Cli {
-	var serverURL string
-
 	if options == nil {
 		options = &Options{}
 	}
 
+	cli := NewClient(account)
+
 	if options.ServerURL != "" {
-		serverURL = options.ServerURL
-	} else if account.isSandbox {
-		serverURL = WxSandboxUrl
-	} else {
-		serverURL = WxUrl
+		cli.serverURL = options.ServerURL
 	}
 
-	return &Client{
-		account:              account,
-		signType:             MD5,
-		httpConnectTimeoutMs: 2000,
-		httpReadTimeoutMs:    1000,
-		serverURL:            serverURL,
-	}
+	return cli
 }
 
 type Options struct {
@@ -74,6 +65,7 @@ type Client struct {
 	httpConnectTimeoutMs int      // 连接超时时间
 	httpReadTimeoutMs    int      // 读取超时时间
 	serverURL            string
+	httpClientWithCert   *http.Client
 }
 
 // 创建微信支付客户端
@@ -86,16 +78,32 @@ func NewClient(account *Account) *Client {
 		serverURL = WxUrl
 	}
 
-	return &Client{
+	client := &Client{
 		account:              account,
 		signType:             MD5,
 		httpConnectTimeoutMs: 2000,
 		httpReadTimeoutMs:    1000,
 		serverURL:            serverURL,
 	}
+
+	if account.certData != nil {
+		// 将pkcs12证书转成pem
+		cert := pkcs12ToPem(account.certData, account.mchID)
+
+		config := &tls.Config{
+			Certificates: []tls.Certificate{cert},
+		}
+		transport := &http.Transport{
+			TLSClientConfig:    config,
+			DisableCompression: true,
+		}
+		client.httpClientWithCert = &http.Client{Transport: transport}
+	}
+
+	return client
 }
 
-func (c *Client) SendRequest(apiType APIType, params Params, resp interface{}) (result *RequestResult) {
+func (c *Client) SendRequest(apiType APIType, params Params, resp interface{}, withCert bool) (result *RequestResult) {
 
 	// api := NewAPI(apiType, c.options.ServerURL)
 	// url := api.URL()
@@ -104,12 +112,16 @@ func (c *Client) SendRequest(apiType APIType, params Params, resp interface{}) (
 		APIType: apiType,
 	}
 
-	// postWithoutCert
 	//h := &http.Client{}
 	result.RequestParams = c.FillRequestData(params)
 	result.RequestContent = []byte(MapToXml(result.RequestParams))
 	//logrus.Infoln(url, string(result.RequestContent))
-	response, err := http.Post(url, bodyType, bytes.NewReader(result.RequestContent))
+
+	httpCli := http.DefaultClient
+	if withCert {
+		httpCli = c.httpClientWithCert
+	}
+	response, err := httpCli.Post(url, bodyType, bytes.NewReader(result.RequestContent))
 	if err != nil {
 		result.Error = err
 		return
@@ -153,19 +165,28 @@ func (c *Client) request(apiType APIType, req, resp interface{}) (result *Reques
 		APIType: apiType,
 	}
 
-	reqParams := Params{}
 	reqBytes, err := json.Marshal(req)
 	if err != nil {
 		result.Error = err
 		return
 	}
-	err = json.Unmarshal(reqBytes, &reqParams)
+
+	reqMap := map[string]interface{}{}
+	err = json.Unmarshal(reqBytes, &reqMap)
 	if err != nil {
 		result.Error = err
 		return
 	}
 
-	result = c.SendRequest(apiType, reqParams, resp)
+	reqParams := Params{}
+	for k, v := range reqMap {
+		strKey := fmt.Sprintf("%v", k)
+		strValue := fmt.Sprintf("%v", v)
+
+		reqParams[strKey] = strValue
+	}
+
+	result = c.SendRequest(apiType, reqParams, resp, true)
 
 	return
 }
