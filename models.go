@@ -61,6 +61,7 @@ type ReqRefund struct {
 	TotalFee    int64  `json:"total_fee"`
 	RefundFee   int64  `json:"refund_fee"`
 	RefundDesc  string `json:"refund_desc"`
+	NotifyUrl   string `json:"notify_url"`
 }
 
 type RespRefund struct {
