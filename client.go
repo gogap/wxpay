@@ -8,12 +8,12 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -165,25 +165,13 @@ func (c *Client) request(apiType APIType, req, resp interface{}) (result *Reques
 		APIType: apiType,
 	}
 
-	reqBytes, err := json.Marshal(req)
-	if err != nil {
-		result.Error = err
-		return
-	}
-
-	reqMap := map[string]interface{}{}
-	err = json.Unmarshal(reqBytes, &reqMap)
-	if err != nil {
-		result.Error = err
-		return
-	}
+	el := reflect.ValueOf(req).Elem()
+	elType := el.Type()
+	elNumField := el.NumField()
 
 	reqParams := Params{}
-	for k, v := range reqMap {
-		strKey := fmt.Sprintf("%v", k)
-		strValue := fmt.Sprintf("%v", v)
-
-		reqParams[strKey] = strValue
+	for i := 0; i < elNumField; i++ {
+		reqParams[elType.Field(i).Tag.Get("json")] = fmt.Sprintf("%v", el.Field(i).Interface())
 	}
 
 	result = c.SendRequest(apiType, reqParams, resp, true)

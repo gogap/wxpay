@@ -1,6 +1,8 @@
 package wxpay
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestClient_UnifiedOrder(t *testing.T) {
 	client := NewClient(NewAccount("xxxxx", "xxx", "xxxxx", false))
@@ -12,4 +14,17 @@ func TestClient_UnifiedOrder(t *testing.T) {
 		SetString("notify_url", "http://notify.objcoding.com/notify").
 		SetString("trade_type", "APP")
 	t.Log(client.UnifiedOrder(params))
+}
+
+func TestClient_RefundOrder(t *testing.T) {
+
+	client := NewClient(NewAccount("xxxxx", "xxx", "xxxxx", false))
+	client.SendRefund(&ReqRefund{
+		OutRefundNo: "1",
+		OutTradeNo:  "1",
+		TotalFee:    1,
+		RefundFee:   1592000,
+		RefundDesc:  "1",
+		NotifyUrl:   "1",
+	})
 }
